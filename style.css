@@ -1,0 +1,31 @@
+BODY {
+    background-color: rgba(150,150,150);
+font-family: monospace, arial, helvetica, sans-serif;
+font-size:20px;
+}
+H1 {
+    font-size: 38px;
+}
+h3{
+    font-size:30px;
+}
+.content{
+
+
+max-width: 600px;
+  margin: auto;
+}
+.column {
+    width:150px;
+    float: left;
+    height: 100px; /* Should be removed. Only for demonstration */
+  }
+  
+  /* Clear floats after the columns */
+  .row:after {
+    width:600px;
+    content: "";
+    display: table;
+    clear: both;
+  }
+

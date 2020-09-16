@@ -1,0 +1,51 @@
+<html>
+<head>
+    <style>
+        @import url(style.css);
+        p.highlight {
+            color: red;
+        }
+        svg {
+            background-color: rgb(41, 41, 36);
+        }
+    </style>
+    <script src="./dist/pong.js"></script>
+</head>
+
+<body>
+    <div background-color="grey" width="100%" height="100%">
+    <div class="content" >
+       
+    <div  class="row">
+
+        <div class="column">
+            <h3>Bot Score:</h3>
+        </div>
+        <div  class="column">
+            <h3 id="botScore">0</h3>
+        </div>
+
+        <div class="column">
+            <h3>User Score:</h3>
+        </div>
+        <div  class="column">
+            <h3 id="userScore">0</h3>
+        </div>
+    </div>
+        <svg id="canvas" width="600" height="600"/>
+        <div  class="row" >
+            <div margin="auto" width="300px" height="50px"  text-align="center" id="hint">
+                Click space button to start the game
+            </div>               
+            </div>
+                     
+            <div position="fixed">
+                <FORM>
+                    <INPUT TYPE="button" onClick="history.go(0)" VALUE="Restart Game (ESC)" padding:auto width="200px">
+                    </FORM>
+            </div>
+        </div>
+    </div>   
+</body>
+
+</html>

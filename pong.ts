@@ -1,4 +1,4 @@
-import { interval, fromEvent, from, zip, Observable, Subscription } from 'rxjs'
+import { interval, fromEvent, from, zip, Observable, Subscription, combineLatest } from 'rxjs'
 import { map, scan, filter, merge, flatMap, take, concat, takeUntil } from 'rxjs/operators'
 
 class RNG {
@@ -10,7 +10,7 @@ class RNG {
   maxYangle = 30
   minYangle = 5
   state: number
-  constructor(seed) {
+  constructor(seed:number) {
     this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
   }
 
@@ -25,9 +25,10 @@ class RNG {
   }
 
 
-  getRandomMotion(): ballMotion {
+  getRandomMotion(): ballMotion {   //create ballMotion with the calculated random angle
 
-    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle)) * ((this.nextFloat() < 0.5 ? -1 : 1));
+    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle))   // generate a random number between 5 and 30
+    * ((this.nextFloat() < 0.5 ? -1 : 1)); // negative or positive determiner
     return new ballMotion(random_num);
   }
   getBounceMotion(previous: ballMotion): ballMotion {
@@ -45,33 +46,36 @@ class ballMotion {
   constructor(deg: number) {
     this.deg = deg;
     this.calcMovement();
-    console.log(deg);
+ 
 
   }
   calcMovement() {
-    this.cx = Math.cos(this.radianToDeg(this.deg));
+    this.cx = Math.cos(this.radianToDeg(this.deg));  //calculate initial x and y velocity based on angle
     this.cy = Math.tan(this.radianToDeg(this.deg));
   }
 
   bounce(ball: HTMLElement) {
     this.deg = - this.deg;
 
-    const paddlebounce = (user: HTMLElement) => {
+    const paddlebounce = (user: HTMLElement) => {// handle the y velocity acceleration and bounce from paddle
       //const number = 1;
-      const number = 1 + (Math.abs(parseFloat(user.getAttribute('y')) + globalSettings.peddlerHeight / 2 - parseFloat(ball.getAttribute('cy'))) / (globalSettings.peddlerHeight * 2));
-      this.cx = - this.cx; this.cy = this.cy * number;
+      const number = 1 + (Math.abs(parseFloat(user.getAttribute('y')) + globalSettings.peddlerHeight / 2  // 1 as minimum value, the acceleration value will based on y location difference between ball and paddle
+      - parseFloat(ball.getAttribute('cy'))) / (globalSettings.peddlerHeight * 2));//with some multiplier to normalize the value
+
+      this.cx = - this.cx; this.cy = this.cy * number; // x velocity will be reversed towards other peddler
     };
 
-    const topBottomBounce = () => { this.cx = this.cx; this.cy = - this.cy; }; 
-    parseFloat(ball.getAttribute("cy")) <= globalSettings.ballRadius ||
+    const topBottomBounce = () => { this.cx = this.cx; this.cy = - this.cy; };  // y velocity will be reversed towards other bound
+
+    parseFloat(ball.getAttribute("cy")) <= globalSettings.ballRadius ||     // determine the whether it's bouncing from paddle or top/bottom
       parseFloat(ball.getAttribute("cy")) >= globalSettings.canvasHeight - globalSettings.ballRadius
       ? topBottomBounce() :
       parseFloat(ball.getAttribute("cx")) < globalSettings.canvasWidth / 2 ? paddlebounce(document.getElementById("player1")) : paddlebounce(document.getElementById("player2"));
   }
-  //velocity:number;
+  
 }
 
-class settings {
+class settings {   // constants in the game
   readonly peddlerWidth = 15;
   readonly peddlerHeight = 120;
   readonly ballRadius = 15;
@@ -81,7 +85,7 @@ class settings {
   readonly winScore = 7;
 }
 
-class sound {
+class sound {  // the data structure to store sound player
   sound = document.createElement("audio");
   constructor(src: string) {
 
@@ -107,27 +111,28 @@ class sound {
 
 class hintTextSettings {
   initialGameState() {
-    const hintText = document.getElementById("hint");
+    const hintText = document.getElementById("hint");              //give hint to user about how to start or restart a game
     hintText.innerText = "Click space button to start the game";
 
   }
 
   empty() {
-    const hintText = document.getElementById("hint");
+    const hintText = document.getElementById("hint");   //empty the text
     hintText.innerText = "\n";
   }
 
   userLose() {
     const hintText = document.getElementById("hint");
     hintText.innerText = "You lost the Game....";
-    setTimeout(() => { this.initialGameState(); }, 3000);
+    setTimeout(() => { this.initialGameState(); }, 3000);   
   }
   userWin() {
-    const hintText = document.getElementById("hint");
+    const hintText = document.getElementById("hint");    //showing message about the winning player
     hintText.innerText = "You win the Game!";
     setTimeout(() => { this.initialGameState(); }, 3000);
   }
 }
+
 
 class State {
 
@@ -139,27 +144,27 @@ class State {
   bounceSound: sound;
   scoreSound: sound;
 
-  readonly playerLose = () => { hintTextProcess.userLose(); this.reset(); return false };
+  readonly playerLose = () => { hintTextProcess.userLose(); this.reset(); return false }; 
   readonly playerWin = () => { hintTextProcess.userWin(); this.reset(); return false };
 
   constructor() {
-    this.bounceSound = new sound("bounce.mp3");
+    this.bounceSound = new sound("bounce.mp3");  // initialize the sound players
     this.scoreSound = new sound("score.mp3");
   }
   
-  start(){
+  start(){    // showing start of game, to prohibit user from change game mode or repeatly start a new game
     this.isGameRunning = true;
     document.getElementById('gameModeButton').setAttribute("DISABLED","disabled");
   }
 
-  addUserScore(): boolean {
+  addUserScore(): boolean {    //handle changes in user score, and change the value of scoreboard
     this.userScore++;
     document.getElementById("userScore").innerText = String(this.userScore);
     this.reCenterBall();
     return this.userScore < globalSettings.winScore ? true : this.playerWin();
   }
 
-  addBotScore(): boolean {
+  addBotScore(): boolean {                 //handle changes in user score, and change the value of scoreboard
     this.botScore++;
     document.getElementById("botScore").innerText = String(this.botScore);
     this.reCenterBall();
@@ -167,24 +172,23 @@ class State {
 
   }
 
-  reset() {
-    this.userScore = 0; this.botScore = 0;
+  reset() {  //when game end reset the state for next game
+    this.userScore = 0; this.botScore = 0; 
     this.isGameRunning = false;
     document.getElementById('gameModeButton').removeAttribute("DISABLED");
     setTimeout(() => {
-      document.getElementById("botScore").innerText = String(this.botScore);
+      document.getElementById("botScore").innerText = String(this.botScore);     // creating delay to showing the score of finished game 
       document.getElementById("userScore").innerText = String(this.userScore);
     }
       , 3000);
     
   }
-  switchGameMode(){
+  switchGameMode(){  // handle the changes of game mode, text showing in button (not lickable)
     this.isMultiplayer = !this.isMultiplayer;
     this.isMultiplayer? document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO SINGLE PLAYER (P)"): document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO MULTI PLAYER (P)");
 
   }
-  muteOrUnmuted() {
-
+  muteOrUnmuted() {  // handle changes of sound control, text shawing in button (not clickable)
     this.isMuted = !this.isMuted;
     this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTE (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (M)");
     
@@ -192,29 +196,29 @@ class State {
 
 
   reCenterBall() {
-    this.isMuted ? null:this.scoreSound.play();
-    //setTimeout(()=>{},3000);
-    document.getElementById("ball").setAttribute("cx", String(globalSettings.canvasWidth / 2));
+    this.isMuted ? null:this.scoreSound.play(); // playing when player get mark
+
+    document.getElementById("ball").setAttribute("cx", String(globalSettings.canvasWidth / 2));  // center the ball
     document.getElementById("ball").setAttribute("cy", String(globalSettings.canvasHeight / 2));
-    document.getElementById("player2").setAttribute("y", String(240));
+    document.getElementById("player2").setAttribute("y", String(240)); // center the players' paddle
     document.getElementById("player1").setAttribute("y", String(240));
 
-    ball_motion = new RNG(parseInt(new Date().toString())).getRandomMotion();
+    ball_motion = new RNG(parseInt(new Date().toString())).getRandomMotion();   //generate a new random motion for next round
 
   }
   handleReachBound(ball: HTMLElement): boolean {
 
-    const bounceEffect = () => {
-      this.isMuted ? null:this.bounceSound.play(); return true 
+    const bounceEffect = () => {               
+      this.isMuted ? null:this.bounceSound.play(); return true  // a function for playing bouncing sound
     };
 
-    if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.peddlerWidth - globalSettings.peddlerWidth) {
+    if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.peddlerWidth - globalSettings.peddlerWidth) { //handle the player at right side
       const player = document.getElementById("player2");
       const handleChange = () => { return this.addBotScore(); };
       return isGetByPlayer(player) ? bounceEffect() : handleChange();
     }
 
-    else if (parseFloat(ball.getAttribute('cx')) <= globalSettings.peddlerWidth + globalSettings.ballRadius) {
+    else if (parseFloat(ball.getAttribute('cx')) <= globalSettings.peddlerWidth + globalSettings.ballRadius) { //handle the player at left size
       const player = document.getElementById("player1");
       const handleChange = () => { return this.addUserScore(); };
       return isGetByPlayer(player) ? bounceEffect() : handleChange();
@@ -231,28 +235,25 @@ class State {
 function move(ball: HTMLElement, ball_motion: ballMotion): boolean {
   const bot = document.getElementById("player1");
   const bound = globalSettings.canvasWidth - globalSettings.ballRadius / 2;
-  ball.setAttribute('cx', String(
+  ball.setAttribute('cx', String(                            // move x horizontally
     Math.min(Math.max(3 * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.peddlerWidth + globalSettings.ballRadius),
       bound)));
-  ball.setAttribute('cy', String(
+  ball.setAttribute('cy', String(                             // move y horizonatally
     Math.min(3 * ball_motion.cy + Number(ball.getAttribute('cy')),
       bound)));
   gameState.isMultiplayer ? null:
-  bot.setAttribute('y', String(
+  bot.setAttribute('y', String(                                   // move y
     Math.min(Math.max(3 * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.peddlerHeight / 2, 0),
       globalSettings.canvasHeight - globalSettings.peddlerHeight)));
   return true;
 }
 
-function isReachBound(ball: HTMLElement, bound: number): boolean {
+function isReachBound(ball: HTMLElement, bound: number): boolean {            // function to determine the whether the ball dhould be moving or not
   return (parseFloat(ball.getAttribute('cx')) > globalSettings.peddlerWidth + globalSettings.ballRadius &&
     parseFloat(ball.getAttribute('cx')) < bound - globalSettings.peddlerWidth &&
     parseFloat(ball.getAttribute('cy')) > globalSettings.ballRadius &&
     parseFloat(ball.getAttribute('cy')) < globalSettings.canvasWidth - globalSettings.ballRadius);
 }
-
-
-
 
 
 
@@ -267,10 +268,12 @@ async function gameStart() {
   const ball = document.getElementById("ball");
   const bound = globalSettings.canvasWidth - globalSettings.peddlerWidth;
 
-  const input = interval(10).pipe().subscribe(
+  const input = interval(10).pipe().subscribe(   // main observable stream of ball
     () => {
-      (isReachBound(ball, bound)) ? null : gameState.handleReachBound(ball) ? ball_motion.bounce(ball) : input.unsubscribe();
-      move(ball, ball_motion);
+      (isReachBound(ball, bound)) ?
+       null : gameState.handleReachBound(ball)  
+       ? ball_motion.bounce(ball) : input.unsubscribe();   // handle bouncing or terminating the observable streams
+      move(ball, ball_motion);  //move the ball
     });
 
 
@@ -296,10 +299,10 @@ async function gameStart() {
 
 
 
-function isGetByPlayer(player: HTMLElement) {
+function isGetByPlayer(player: HTMLElement):boolean{ //determine whether the player able to bounce the ball 
   const ball = document.getElementById("ball");
 
-  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&
+  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&  //compare the location of paddle with ball
     parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
     <= parseFloat(player.getAttribute('y')) + parseFloat(player.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
 }
@@ -316,7 +319,7 @@ function bounceeffect() {
 
 
 
-function createBotPeddler() {
+function createBall() { // the ball element
   const svg = document.getElementById("canvas");
   //const peddler = document.createElementNS(svg.namespaceURI, 'rect');
   //Object.entries({
@@ -338,7 +341,6 @@ function createBotPeddler() {
   svg.appendChild(ball);
 
   var newText = document.createElementNS(svg.namespaceURI, "text");
-
   Object.entries({
     x: 10, y: 10,
     innerText: "new",
@@ -350,7 +352,9 @@ function createBotPeddler() {
   svg.appendChild(newText);
 }
 
-class Player{
+
+
+class Player{ // data structure to store player data
   commands: Array<keyboardCommand>;
   obs:Subscription;
   idNo:number;
@@ -366,11 +370,11 @@ class Player{
     x: idNo ==1 ?0:585, y: 240,
     width: 15, height: 120,
     fill: '#FFFFFF',
-  }).forEach(([key, val]) => rect.setAttribute(key, String(val)));
+  }).forEach(([key, val]) => rect.setAttribute(key, String(val))); // create the html element for player to canvas in constructor
   svg.appendChild(rect);
 
   this.commands = [
-    { char: idNo ==1? "w":'ArrowUp', y: -10,target:this.id },
+    { char: idNo ==1? "w":'ArrowUp', y: -10,target:this.id },  // the commande to be used in observable
     { char: idNo ==1? "s":"ArrowDown", y: 10,target:this.id }
   ];
   //this.createObservable();
@@ -456,8 +460,10 @@ function pong() {
      document.getElementById(command.target).setAttribute('y', String(Math.max(0, Math.min(parseFloat(document.getElementById(command.target).getAttribute('y'))
    + command.y, document.getElementById("canvas").getBoundingClientRect().height - document.getElementById(command.target).getBoundingClientRect().height)))) }
   obslist[0].pipe(merge(obslist[1],obslist[2],obslist[3])).subscribe((command: keyboardCommand) => movePaddle(command));
+  //https://www.learnrxjs.io/learn-rxjs/recipes/tank-battle-game
+  const newobs = combineLatest(obslist);
 
-  createBotPeddler();
+  createBall();
   core();
 
 }

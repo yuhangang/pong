@@ -19,30 +19,36 @@
     <div  class="row">
 
         <div class="column">
-            <h3>Bot Score:</h3>
+            Bot Score:
         </div>
-        <div  class="column">
-            <h3 id="botScore">0</h3>
+        <div id="botScore" class="column">
+          0
         </div>
 
         <div class="column">
-            <h3>User Score:</h3>
+            User Score:
         </div>
-        <div  class="column">
-            <h3 id="userScore">0</h3>
+        <div id="userScore" class="column">
+           0
         </div>
     </div>
         <svg id="canvas" width="600" height="600"/>
         <div  class="row" >
-            <div margin="auto" width="300px" height="50px"  text-align="center" id="hint">
+            <div margin="auto" width="300px" height="5 0px"  text-align="center" id="hint" padding="20px">
                 Click space button to start the game
             </div>               
             </div>
                      
             <div position="fixed">
-                <FORM>
-                    <INPUT TYPE="button" onClick="history.go(0)" VALUE="Restart Game (ESC)" padding:auto width="200px">
-                    </FORM>
+                <div  class="row">
+                <div class="column">
+                    <INPUT id="mutedButton" TYPE="button"  readyOnly VALUE="MUTE (M)" padding:auto width="200px">
+                    </div>
+                    <div class="column">
+                        <INPUT id="restartButton" TYPE="button" readyOnly VALUE="SWITCH  TO MULTIPLAYER (P)" padding:auto width="200px">
+                        </div>
+                        
+                    </div>
             </div>
         </div>
     </div>   

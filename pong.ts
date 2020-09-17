@@ -1,12 +1,14 @@
 import { interval, fromEvent, from, zip, Observable, Subscription } from 'rxjs'
 import { map, scan, filter, merge, flatMap, take, concat, takeUntil } from 'rxjs/operators'
+
 class RNG {
   // LCG using GCC's constants
 
   m = 0x80000000// 2**31
   a = 1103515245
   c = 12345
-  yangle = 30
+  maxYangle = 30
+  minYangle = 5
   state: number
   constructor(seed) {
     this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
@@ -24,12 +26,11 @@ class RNG {
 
 
   getRandomMotion(): ballMotion {
-    
-    const random_num = Math.floor(this.nextFloat() * (this.yangle + this.yangle + 1)) - this.yangle;
+
+    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle)) * ((this.nextFloat() < 0.5 ? -1 : 1));
     return new ballMotion(random_num);
-    //velocity:1/Math.cos(radianToDeg(random_num));
   }
-  getBounceMotion(previous:ballMotion): ballMotion{
+  getBounceMotion(previous: ballMotion): ballMotion {
     return previous;
   }
 }
@@ -41,19 +42,31 @@ class ballMotion {
   deg: number;
   radianToDeg = (num: number) => (num * Math.PI / 180);
 
-  constructor(deg:number){
+  constructor(deg: number) {
     this.deg = deg;
     this.calcMovement();
-    
+    console.log(deg);
+
   }
-  calcMovement(){
+  calcMovement() {
     this.cx = Math.cos(this.radianToDeg(this.deg));
     this.cy = Math.tan(this.radianToDeg(this.deg));
   }
-  bounce(ball:HTMLElement){
+
+  bounce(ball: HTMLElement) {
     this.deg = - this.deg;
-    this.cx = - this.cx;
-    this.cy =  this.cy;
+
+    const paddlebounce = (user: HTMLElement) => {
+      //const number = 1;
+      const number = 1 + (Math.abs(parseFloat(user.getAttribute('y')) + globalSettings.peddlerHeight / 2 - parseFloat(ball.getAttribute('cy'))) / (globalSettings.peddlerHeight * 2));
+      this.cx = - this.cx; this.cy = this.cy * number;
+    };
+
+    const topBottomBounce = () => { this.cx = this.cx; this.cy = - this.cy; };
+    parseFloat(ball.getAttribute("cy")) <= globalSettings.ballRadius ||
+      parseFloat(ball.getAttribute("cy")) >= globalSettings.canvasHeight - globalSettings.ballRadius
+      ? topBottomBounce() :
+      parseFloat(ball.getAttribute("cx")) < globalSettings.canvasWidth / 2 ? paddlebounce(document.getElementById('bot')) : paddlebounce(document.getElementById('user'));
   }
   //velocity:number;
 }
@@ -65,136 +78,196 @@ class settings {
   readonly ballColor = "cyan";
   readonly canvasWidth = 600;
   readonly canvasHeight = 600;
-  readonly winScore = 5;
+  readonly winScore = 7;
+}
+
+class sound {
+  sound = document.createElement("audio");
+  constructor(src: string) {
+
+    this.sound.src = src;
+    this.sound.setAttribute("preload", "auto");
+    this.sound.setAttribute("controls", "none");
+    this.sound.setAttribute("muted", "true");
+    this.sound.style.display = "none";
+    document.getElementById('canvas').appendChild(this.sound);
+  }
+
+
+  play() {
+    this.sound.play();
+  }
+  stop() {
+    this.sound.pause();
+  }
 }
 
 
 
-class hintTextSettings{
-  initialGameState(){
+
+class hintTextSettings {
+  initialGameState() {
     const hintText = document.getElementById("hint");
     hintText.innerText = "Click space button to start the game";
-    
+
   }
 
-  empty(){
+  empty() {
     const hintText = document.getElementById("hint");
     hintText.innerText = "\n";
   }
 
-  userLose(){
+  userLose() {
     const hintText = document.getElementById("hint");
     hintText.innerText = "You lost the Game....";
-    setTimeout(()=>{this.initialGameState();},3000);
+    setTimeout(() => { this.initialGameState(); }, 3000);
   }
-  userWin(){
+  userWin() {
     const hintText = document.getElementById("hint");
     hintText.innerText = "You win the Game!";
-    setTimeout(()=>{this.initialGameState();},3000);
+    setTimeout(() => { this.initialGameState(); }, 3000);
   }
 }
 
 class State {
+
   userScore: number = 0;
   botScore: number = 0;
   isGameStarted: boolean = false;
   isGamePaused: boolean = false;
   isGameFinished: boolean = false;
+  isMuted: boolean = false;
+  bounceSound: sound;
+  scoreSound: sound;
 
-  addUserScore() {
-    this.userScore++;
-    document.getElementById("userScore").innerText = String(parseInt(document.getElementById("botScore").innerText) + 1);
-    this.reCenterBall();
+  readonly playerLose = () => { hintTextProcess.userLose(); this.reset(); return false };
+  readonly playerWin = () => { hintTextProcess.userWin(); this.reset(); return false };
+
+  constructor() {
+    this.bounceSound = new sound("bounce.mp3");
+    this.scoreSound = new sound("score.mp3");
   }
 
-  addBotScore() {
-    this.botScore++; 
-    document.getElementById("botScore").innerText = String(parseInt(document.getElementById("botScore").innerText) + 1);
+
+  addUserScore(): boolean {
+    this.userScore++;
+    document.getElementById("userScore").innerText = String(this.userScore);
     this.reCenterBall();
+    return this.userScore < globalSettings.winScore ? true : this.playerWin();
+  }
+
+  addBotScore(): boolean {
+    this.botScore++;
+    document.getElementById("botScore").innerText = String(this.botScore);
+    this.reCenterBall();
+    return this.botScore < globalSettings.winScore ? true : this.playerLose();
+
   }
 
   reset() {
     this.userScore = 0; this.botScore = 0;
+    setTimeout(() => {
+      document.getElementById("botScore").innerText = String(this.botScore);
+      document.getElementById("userScore").innerText = String(this.userScore);
+    }
+      , 3000);
   }
+
+  muteOrUnmuted() {
+
+    this.isMuted = !this.isMuted;
+    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTED (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (M)");
+    
+  }
+
+
   reCenterBall() {
+    this.isMuted ? null:this.scoreSound.play();
+    //setTimeout(()=>{},3000);
     document.getElementById("ball").setAttribute("cx", String(globalSettings.canvasWidth / 2));
     document.getElementById("ball").setAttribute("cy", String(globalSettings.canvasHeight / 2));
+    document.getElementById("user").setAttribute("y", String(240));
+    document.getElementById("bot").setAttribute("y", String(240));
+
+    ball_motion = new RNG(parseInt(new Date().toString())).getRandomMotion();
+
+  }
+  handleReachBound(ball: HTMLElement): boolean {
+
+    const bounceEffect = () => {
+      this.isMuted ? null:this.bounceSound.play(); return true 
+    };
+
+    if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.peddlerWidth - globalSettings.peddlerWidth) {
+      const player = document.getElementById("user");
+      const handleChange = () => { return this.addBotScore(); };
+      //isGetByPlayer(player) ? bounce(player) : handleChange();
+      return isGetByPlayer(player) ? bounceEffect() : handleChange();
+    }
+
+    else if (parseFloat(ball.getAttribute('cx')) <= globalSettings.peddlerWidth + globalSettings.ballRadius) {
+      const player = document.getElementById("bot");
+      const handleChange = () => { return this.addUserScore(); };
+      return isGetByPlayer(player) ? bounceEffect() : handleChange();
+    }
+    return bounceEffect();
+
   }
 }
 
-const gameState = new State();
-const globalSettings = new settings();
-const hintTextProcess = new hintTextSettings();
 
 
 
 
-function move(ball:HTMLElement,ball_motion:ballMotion):boolean{
-  const bot =document.getElementById("bot");
-  const bound = globalSettings.canvasWidth - globalSettings.ballRadius/2;
-  const bot_min = 60;
+function move(ball: HTMLElement, ball_motion: ballMotion): boolean {
+  const bot = document.getElementById("bot");
+  const bound = globalSettings.canvasWidth - globalSettings.ballRadius / 2;
   ball.setAttribute('cx', String(
-    Math.min(Math.max(3 * ball_motion.cx + Number(ball.getAttribute('cx')),globalSettings.peddlerWidth + globalSettings.ballRadius ),
+    Math.min(Math.max(3 * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.peddlerWidth + globalSettings.ballRadius),
       bound)));
   ball.setAttribute('cy', String(
     Math.min(3 * ball_motion.cy + Number(ball.getAttribute('cy')),
       bound)));
   bot.setAttribute('y', String(
-        Math.min(Math.max(3 * ball_motion.cy + Number(ball.getAttribute('cy'))-globalSettings.peddlerHeight/2,globalSettings.peddlerHeight/2),
-          bound - globalSettings.peddlerHeight/2)));
+    Math.min(Math.max(3 * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.peddlerHeight / 2, 0),
+      globalSettings.canvasHeight - globalSettings.peddlerHeight)));
   return true;
 }
 
-function isReachBound(ball:HTMLElement,bound:number):boolean {
+function isReachBound(ball: HTMLElement, bound: number): boolean {
   return (parseFloat(ball.getAttribute('cx')) > globalSettings.peddlerWidth + globalSettings.ballRadius &&
-  parseFloat(ball.getAttribute('cx')) < bound - globalSettings.peddlerWidth && 
-  parseFloat(ball.getAttribute('cy')) > 0 &&
-  parseFloat(ball.getAttribute('cy')) < bound);
-}
-
-function handleReachBound(ball:HTMLElement,input:Subscription):boolean{
-
-  if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth  - globalSettings.peddlerWidth - globalSettings.peddlerWidth) {
-    const player =document.getElementById("user");
-    const handleChange = ()=>{  hintTextProcess.userLose(); gameState.addBotScore();return false;};
-  //isGetByPlayer(player) ? bounce(player) : handleChange();
-  return isGetByPlayer(player)? true:handleChange();
-}
-else if(parseFloat(ball.getAttribute('cx')) <= globalSettings.peddlerWidth+globalSettings.ballRadius){
-  const player =document.getElementById("bot");
-  const handleChange = ()=>{ hintTextProcess.userWin(); gameState.addUserScore();return false;};
-  return isGetByPlayer(player) ? true: handleChange();
-}
-return true;
-
+    parseFloat(ball.getAttribute('cx')) < bound - globalSettings.peddlerWidth &&
+    parseFloat(ball.getAttribute('cy')) > globalSettings.ballRadius &&
+    parseFloat(ball.getAttribute('cy')) < globalSettings.canvasWidth - globalSettings.ballRadius);
 }
 
 
 
 
 
-function mainGame() {
-  let ball_motion:ballMotion = new RNG(parseInt(new Date().toString())).getRandomMotion();
-  
+
+
+
+
+async function gameRound() {
+
+
   hintTextProcess.empty();
 
   const svg = document.getElementById("canvas");
-  const bounding: DOMRect = svg.getBoundingClientRect();
+
   const ball = document.getElementById("ball");
-  const bound = globalSettings.canvasWidth  - globalSettings.peddlerWidth;
+  const bound = globalSettings.canvasWidth - globalSettings.peddlerWidth;
 
-  const input = interval(15).pipe().subscribe(
+  const input = interval(10).pipe().subscribe(
     () => {
-    
-     const isGameContinue:boolean = false;
-
-    (isReachBound(ball, bound)) ? null: handleReachBound(ball,input)? ball_motion.bounce(ball):input.unsubscribe();
-    move(ball,ball_motion); 
-    
-
+      (isReachBound(ball, bound)) ? null : gameState.handleReachBound(ball) ? ball_motion.bounce(ball) : input.unsubscribe();
+      move(ball, ball_motion);
     });
 
+
 }
+
 
 //function isGetByUser() {
 //  const ball = document.getElementById("ball");
@@ -212,9 +285,12 @@ function mainGame() {
 //    <= parseFloat(bot.getAttribute('y')) + parseFloat(bot.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
 //}
 
-function isGetByPlayer(player:HTMLElement) {
+
+
+
+function isGetByPlayer(player: HTMLElement) {
   const ball = document.getElementById("ball");
-     
+
   return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&
     parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
     <= parseFloat(player.getAttribute('y')) + parseFloat(player.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
@@ -232,13 +308,6 @@ function bounceeffect() {
 
 
 
-
-function core() {
-
-  document.addEventListener("keydown", function (event) { if (event.code == "Space") mainGame(); });
-  bounceeffect();
-}
-
 function createBotPeddler() {
   const svg = document.getElementById("canvas");
   const peddler = document.createElementNS(svg.namespaceURI, 'rect');
@@ -250,14 +319,7 @@ function createBotPeddler() {
   }).forEach(([key, val]) => peddler.setAttribute(key, String(val)))
   svg.appendChild(peddler);
 
-  //const middleline = document.createElementNS(svg.namespaceURI, 'rect');
-  //Object.entries({
-  //  x: 298, y: 0,
-  //  width: 5, height: 600,
-  //  fill: '#FFFFFF',
-  //  id:"middleline"
-  //}).forEach(([key, val]) => middleline.setAttribute(key, String(val)))
-  //svg.appendChild(middleline);
+
   const ball = document.createElementNS(svg.namespaceURI, 'circle');
   Object.entries({
     cx: 300, cy: 300,
@@ -302,8 +364,8 @@ function createUser() {
 
 
   const commands: Array<keyboardCommand> = [
-    { char: 'ArrowUp', y: -10},
-    { char: "ArrowDown", y: 10  }
+    { char: 'ArrowUp', y: -10 },
+    { char: "ArrowDown", y: 10 }
   ];
 
   const commandlist = commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char), map(() => command)));
@@ -311,9 +373,23 @@ function createUser() {
   commandlist[0].pipe(merge(commandlist[1])).subscribe((command: keyboardCommand) => move(command));
 }
 
+
+
+let gameState: State;
+const globalSettings = new settings();
+const hintTextProcess = new hintTextSettings();
+let ball_motion: ballMotion = new RNG(parseInt(new Date().toString())).getRandomMotion();
+
+
+function core() {
+  gameState = new State();
+  document.addEventListener("keydown", function (event) { if (event.code == "KeyM") gameState.muteOrUnmuted();});
+  document.addEventListener("keydown", function (event) { if (event.code == "Space") gameRound(); });
+  document.addEventListener("keydown", function (event) { if (event.code == "Escape") history.go(0); });
+  bounceeffect();
+}
+
 function pong() {
-
-
   createUser();
   createBotPeddler();
   core();

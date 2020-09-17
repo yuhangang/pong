@@ -62,11 +62,11 @@ class ballMotion {
       this.cx = - this.cx; this.cy = this.cy * number;
     };
 
-    const topBottomBounce = () => { this.cx = this.cx; this.cy = - this.cy; };
+    const topBottomBounce = () => { this.cx = this.cx; this.cy = - this.cy; }; 
     parseFloat(ball.getAttribute("cy")) <= globalSettings.ballRadius ||
       parseFloat(ball.getAttribute("cy")) >= globalSettings.canvasHeight - globalSettings.ballRadius
       ? topBottomBounce() :
-      parseFloat(ball.getAttribute("cx")) < globalSettings.canvasWidth / 2 ? paddlebounce(document.getElementById('bot')) : paddlebounce(document.getElementById('user'));
+      parseFloat(ball.getAttribute("cx")) < globalSettings.canvasWidth / 2 ? paddlebounce(document.getElementById("player1")) : paddlebounce(document.getElementById("player2"));
   }
   //velocity:number;
 }
@@ -133,9 +133,8 @@ class State {
 
   userScore: number = 0;
   botScore: number = 0;
-  isGameStarted: boolean = false;
-  isGamePaused: boolean = false;
-  isGameFinished: boolean = false;
+  isMultiplayer:boolean = false;
+  isGameRunning: boolean = false;
   isMuted: boolean = false;
   bounceSound: sound;
   scoreSound: sound;
@@ -147,7 +146,11 @@ class State {
     this.bounceSound = new sound("bounce.mp3");
     this.scoreSound = new sound("score.mp3");
   }
-
+  
+  start(){
+    this.isGameRunning = true;
+    document.getElementById('gameModeButton').setAttribute("DISABLED","disabled");
+  }
 
   addUserScore(): boolean {
     this.userScore++;
@@ -166,17 +169,24 @@ class State {
 
   reset() {
     this.userScore = 0; this.botScore = 0;
+    this.isGameRunning = false;
+    document.getElementById('gameModeButton').removeAttribute("DISABLED");
     setTimeout(() => {
       document.getElementById("botScore").innerText = String(this.botScore);
       document.getElementById("userScore").innerText = String(this.userScore);
     }
       , 3000);
+    
   }
+  switchGameMode(){
+    this.isMultiplayer = !this.isMultiplayer;
+    this.isMultiplayer? document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO SINGLE PLAYER (P)"): document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO MULTI PLAYER (P)");
 
+  }
   muteOrUnmuted() {
 
     this.isMuted = !this.isMuted;
-    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTED (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (M)");
+    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTE (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (M)");
     
   }
 
@@ -186,8 +196,8 @@ class State {
     //setTimeout(()=>{},3000);
     document.getElementById("ball").setAttribute("cx", String(globalSettings.canvasWidth / 2));
     document.getElementById("ball").setAttribute("cy", String(globalSettings.canvasHeight / 2));
-    document.getElementById("user").setAttribute("y", String(240));
-    document.getElementById("bot").setAttribute("y", String(240));
+    document.getElementById("player2").setAttribute("y", String(240));
+    document.getElementById("player1").setAttribute("y", String(240));
 
     ball_motion = new RNG(parseInt(new Date().toString())).getRandomMotion();
 
@@ -199,14 +209,13 @@ class State {
     };
 
     if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.peddlerWidth - globalSettings.peddlerWidth) {
-      const player = document.getElementById("user");
+      const player = document.getElementById("player2");
       const handleChange = () => { return this.addBotScore(); };
-      //isGetByPlayer(player) ? bounce(player) : handleChange();
       return isGetByPlayer(player) ? bounceEffect() : handleChange();
     }
 
     else if (parseFloat(ball.getAttribute('cx')) <= globalSettings.peddlerWidth + globalSettings.ballRadius) {
-      const player = document.getElementById("bot");
+      const player = document.getElementById("player1");
       const handleChange = () => { return this.addUserScore(); };
       return isGetByPlayer(player) ? bounceEffect() : handleChange();
     }
@@ -220,7 +229,7 @@ class State {
 
 
 function move(ball: HTMLElement, ball_motion: ballMotion): boolean {
-  const bot = document.getElementById("bot");
+  const bot = document.getElementById("player1");
   const bound = globalSettings.canvasWidth - globalSettings.ballRadius / 2;
   ball.setAttribute('cx', String(
     Math.min(Math.max(3 * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.peddlerWidth + globalSettings.ballRadius),
@@ -228,6 +237,7 @@ function move(ball: HTMLElement, ball_motion: ballMotion): boolean {
   ball.setAttribute('cy', String(
     Math.min(3 * ball_motion.cy + Number(ball.getAttribute('cy')),
       bound)));
+  gameState.isMultiplayer ? null:
   bot.setAttribute('y', String(
     Math.min(Math.max(3 * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.peddlerHeight / 2, 0),
       globalSettings.canvasHeight - globalSettings.peddlerHeight)));
@@ -249,13 +259,11 @@ function isReachBound(ball: HTMLElement, bound: number): boolean {
 
 
 
-async function gameRound() {
-
-
+async function gameStart() {
+  gameState.start();
   hintTextProcess.empty();
 
-  const svg = document.getElementById("canvas");
-
+  
   const ball = document.getElementById("ball");
   const bound = globalSettings.canvasWidth - globalSettings.peddlerWidth;
 
@@ -271,7 +279,7 @@ async function gameRound() {
 
 //function isGetByUser() {
 //  const ball = document.getElementById("ball");
-//  const user = document.getElementById("user");
+//  const user = document.getElementById("player2");
 //  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(user.getAttribute('y')) &&
 //    parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
 //    <= parseFloat(user.getAttribute('y')) + parseFloat(user.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
@@ -279,7 +287,7 @@ async function gameRound() {
 //
 //function isGetByBot() {
 //  const ball = document.getElementById("ball");
-//  const bot = document.getElementById("bot");
+//  const bot = document.getElementById("player1");
 //  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(bot.getAttribute('y')) &&
 //    parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
 //    <= parseFloat(bot.getAttribute('y')) + parseFloat(bot.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
@@ -310,14 +318,14 @@ function bounceeffect() {
 
 function createBotPeddler() {
   const svg = document.getElementById("canvas");
-  const peddler = document.createElementNS(svg.namespaceURI, 'rect');
-  Object.entries({
-    x: 0, y: 240,
-    width: 15, height: 120,
-    id: "bot",
-    fill: '#FFFFFF',
-  }).forEach(([key, val]) => peddler.setAttribute(key, String(val)))
-  svg.appendChild(peddler);
+  //const peddler = document.createElementNS(svg.namespaceURI, 'rect');
+  //Object.entries({
+  //  x: 0, y: 240,
+  //  width: 15, height: 120,
+  //  id: "player1",
+  //  fill: '#FFFFFF',
+  //}).forEach(([key, val]) => peddler.setAttribute(key, String(val)))
+  //svg.appendChild(peddler);
 
 
   const ball = document.createElementNS(svg.namespaceURI, 'circle');
@@ -342,20 +350,60 @@ function createBotPeddler() {
   svg.appendChild(newText);
 }
 
+class Player{
+  commands: Array<keyboardCommand>;
+  obs:Subscription;
+  idNo:number;
+  id:string;
+  constructor(idNo:number){
+    this.idNo = idNo;
+    this.id = "player"+String(idNo);
+  const svg = document.getElementById("canvas")!;
+  const rect = document.createElementNS(svg.namespaceURI, 'rect');
+  
+  Object.entries({
+    id: "player"+String(idNo),
+    x: idNo ==1 ?0:585, y: 240,
+    width: 15, height: 120,
+    fill: '#FFFFFF',
+  }).forEach(([key, val]) => rect.setAttribute(key, String(val)));
+  svg.appendChild(rect);
+
+  this.commands = [
+    { char: idNo ==1? "w":'ArrowUp', y: -10,target:this.id },
+    { char: idNo ==1? "s":"ArrowDown", y: 10,target:this.id }
+  ];
+  //this.createObservable();
+}
+
+ createObservable(){
+  const svg = document.getElementById("canvas")!;
+  const rect = document.getElementById("player"+String(this.idNo));
+  const commandlist = this.commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char && !(this.idNo == 1 && !gameState.isMultiplayer)), map(() => command)));
+  const move = (command: keyboardCommand) => { rect.setAttribute('y', String(Math.max(0, Math.min(parseFloat(rect.getAttribute('y')) + command.y, svg.getBoundingClientRect().height - rect.getBoundingClientRect().height)))) }
+  this.obs = commandlist[0].pipe(merge(commandlist[1])).subscribe((command: keyboardCommand) => move(command));
+ }
+ 
+ removeObservable(){
+   this.obs.unsubscribe();
+ }
+}
 
 
-function createUser() {
-  interface keyboardCommand {
+interface keyboardCommand {
     char: string;
     //x: number;
     y: number;
+    target:string;
   }
 
+function createUser() {
+  
   // get the svg canvas element
   const svg = document.getElementById("canvas")!;
   const rect = document.createElementNS(svg.namespaceURI, 'rect');
   Object.entries({
-    id: "user",
+    id: "player2",
     x: 585, y: 240,
     width: 15, height: 120,
     fill: '#FFFFFF',
@@ -364,8 +412,8 @@ function createUser() {
 
 
   const commands: Array<keyboardCommand> = [
-    { char: 'ArrowUp', y: -10 },
-    { char: "ArrowDown", y: 10 }
+    { char: 'ArrowUp', y: -10 ,target:""},
+    { char: "ArrowDown", y: 10,target:"" }
   ];
 
   const commandlist = commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char), map(() => command)));
@@ -382,15 +430,33 @@ let ball_motion: ballMotion = new RNG(parseInt(new Date().toString())).getRandom
 
 
 function core() {
-  gameState = new State();
+  document.addEventListener("keydown", function (event) { if (event.code == "KeyP" &&!gameState.isGameRunning) gameState.switchGameMode();});
   document.addEventListener("keydown", function (event) { if (event.code == "KeyM") gameState.muteOrUnmuted();});
-  document.addEventListener("keydown", function (event) { if (event.code == "Space") gameRound(); });
+  document.addEventListener("keydown", function (event) { if (event.code == "Space"&&!gameState.isGameRunning)   gameStart(); });
   document.addEventListener("keydown", function (event) { if (event.code == "Escape") history.go(0); });
   bounceeffect();
 }
 
+
+
+let user1:Player;
+let user2 :Player;
+
 function pong() {
-  createUser();
+  gameState = new State();
+  //createUser();//
+  user1 = new Player(1);
+  user2 = new Player(2);
+  const obslist = user1.commands.concat(user2.commands).map(
+        (command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(
+          filter((event: KeyboardEvent) => event.key === command.char && !(command.target == "player1" && !gameState.isMultiplayer)),
+           map(() => command)));
+
+  const movePaddle = (command: keyboardCommand) => {
+     document.getElementById(command.target).setAttribute('y', String(Math.max(0, Math.min(parseFloat(document.getElementById(command.target).getAttribute('y'))
+   + command.y, document.getElementById("canvas").getBoundingClientRect().height - document.getElementById(command.target).getBoundingClientRect().height)))) }
+  obslist[0].pipe(merge(obslist[1],obslist[2],obslist[3])).subscribe((command: keyboardCommand) => movePaddle(command));
+
   createBotPeddler();
   core();
 

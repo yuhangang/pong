@@ -7,8 +7,8 @@ class RNG {
   m = 0x80000000// 2**31
   a = 1103515245
   c = 12345
-  maxYangle = 30
-  minYangle = 5
+  maxYangle = 20
+  minYangle = 10 
   state: number
   constructor(seed:number) {
     this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
@@ -27,7 +27,7 @@ class RNG {
 
   getRandomMotion(): ballMotion {   //create ballMotion with the calculated random angle
 
-    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle))   // generate a random number between 5 and 30
+    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle))   // generate a random number between 15 and 30
     * ((this.nextFloat() < 0.5 ? -1 : 1)); // negative or positive determiner
     return new ballMotion(random_num);
   }
@@ -78,11 +78,37 @@ class ballMotion {
 class settings {   // constants in the game
   readonly peddlerWidth = 15;
   readonly peddlerHeight = 120;
-  readonly ballRadius = 15;
+  ballRadius = 15;
   readonly ballColor = "cyan";
   readonly canvasWidth = 600;
   readonly canvasHeight = 600;
   readonly winScore = 7;
+  isMultiplayer:boolean = false;
+  isMuted: boolean = false;
+  ballSize:number = 12;
+  ballSpeed:number = 2.5;
+
+  switchGameMode(){  // handle the changes of game mode, text showing in button (not lickable)
+    this.isMultiplayer = !this.isMultiplayer;
+    this.isMultiplayer? document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO SINGLE PLAYER (P)"): document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO MULTI PLAYER (I)");
+
+  }
+  muteOrUnmuted() {  // handle changes of sound control, text shawing in button (not clickable)
+    this.isMuted = !this.isMuted;
+    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTE (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (U)");
+    
+  }
+
+  changeBallSize(){
+    this.ballSize= this.ballSize ==12 ?17:12;
+    this.ballSize ==17 ? document.getElementById("ballSizeButton").setAttribute("VALUE", "SMALLER BALL (P)") : document.getElementById("ballSizeButton").setAttribute("VALUE", "BIGGER BALL (P)");
+    globalSettings.ballRadius = this.ballSize;
+    document.getElementById("ball").setAttribute("r",String(this.ballSize));
+  }
+  changeBallSpeed(){
+    this.ballSpeed = this.ballSpeed == 2.5? 4 : 2.5;
+    this.ballSpeed == 4 ? document.getElementById("ballSpeedButton").setAttribute("VALUE", "SLOWER BALL (O)") : document.getElementById("ballSpeedButton").setAttribute("VALUE", "FASTER BALL (O)");
+  }
 }
 
 class sound {  // the data structure to store sound player
@@ -98,8 +124,11 @@ class sound {  // the data structure to store sound player
   }
 
 
-  play() {
+  async play(){
     this.sound.play();
+    
+      
+    
   }
   stop() {
     this.sound.pause();
@@ -138,9 +167,9 @@ class State {
 
   userScore: number = 0;
   botScore: number = 0;
-  isMultiplayer:boolean = false;
+  
   isGameRunning: boolean = false;
-  isMuted: boolean = false;
+ 
   bounceSound: sound;
   scoreSound: sound;
 
@@ -183,33 +212,29 @@ class State {
       , 3000);
     
   }
-  switchGameMode(){  // handle the changes of game mode, text showing in button (not lickable)
-    this.isMultiplayer = !this.isMultiplayer;
-    this.isMultiplayer? document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO SINGLE PLAYER (P)"): document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO MULTI PLAYER (P)");
-
-  }
-  muteOrUnmuted() {  // handle changes of sound control, text shawing in button (not clickable)
-    this.isMuted = !this.isMuted;
-    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTE (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (M)");
-    
-  }
-
+ 
 
   reCenterBall() {
-    this.isMuted ? null:this.scoreSound.play(); // playing when player get mark
+    globalSettings.isMuted ? null:this.scoreSound.play(); // playing when player get mark
 
     document.getElementById("ball").setAttribute("cx", String(globalSettings.canvasWidth / 2));  // center the ball
     document.getElementById("ball").setAttribute("cy", String(globalSettings.canvasHeight / 2));
     document.getElementById("player2").setAttribute("y", String(240)); // center the players' paddle
     document.getElementById("player1").setAttribute("y", String(240));
-
     ball_motion = new RNG(parseInt(new Date().toString())).getRandomMotion();   //generate a new random motion for next round
-
   }
+
   handleReachBound(ball: HTMLElement): boolean {
 
     const bounceEffect = () => {               
-      this.isMuted ? null:this.bounceSound.play(); return true  // a function for playing bouncing sound
+      globalSettings.isMuted ? null:this.bounceSound.play(); 
+      const ball = document.getElementById("ball");
+    ball.setAttribute('fill', "white");
+    setTimeout(function () {
+      //this.bounceSound.stop(); 
+      ball.setAttribute('fill', "cyan");
+    }, 100);
+      return true;  // a function for playing bouncing sound
     };
 
     if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.peddlerWidth - globalSettings.peddlerWidth) { //handle the player at right side
@@ -236,14 +261,14 @@ function move(ball: HTMLElement, ball_motion: ballMotion): boolean {
   const bot = document.getElementById("player1");
   const bound = globalSettings.canvasWidth - globalSettings.ballRadius / 2;
   ball.setAttribute('cx', String(                            // move x horizontally
-    Math.min(Math.max(3 * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.peddlerWidth + globalSettings.ballRadius),
+    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.peddlerWidth + globalSettings.ballRadius),
       bound)));
   ball.setAttribute('cy', String(                             // move y horizonatally
-    Math.min(3 * ball_motion.cy + Number(ball.getAttribute('cy')),
+    Math.min(globalSettings.ballSpeed  * ball_motion.cy + Number(ball.getAttribute('cy')),
       bound)));
-  gameState.isMultiplayer ? null:
+  globalSettings.isMultiplayer ? null:
   bot.setAttribute('y', String(                                   // move y
-    Math.min(Math.max(3 * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.peddlerHeight / 2, 0),
+    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.peddlerHeight / 2, 0),
       globalSettings.canvasHeight - globalSettings.peddlerHeight)));
   return true;
 }
@@ -304,18 +329,10 @@ function isGetByPlayer(player: HTMLElement):boolean{ //determine whether the pla
 
   return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&  //compare the location of paddle with ball
     parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
-    <= parseFloat(player.getAttribute('y')) + parseFloat(player.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
+    <= parseFloat(player.getAttribute('y')) + parseFloat(player.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 4);
 }
 
-function bounceeffect() {
-  const ball = document.getElementById("ball");
-  if (parseFloat(ball.getAttribute('cx')) > 310) {
-    ball.setAttribute('fill', "white");
-    setTimeout(function () {
-      ball.setAttribute('fill', "cyan");
-    }, 1000);
-  }
-}
+
 
 
 
@@ -383,7 +400,7 @@ class Player{ // data structure to store player data
  createObservable(){
   const svg = document.getElementById("canvas")!;
   const rect = document.getElementById("player"+String(this.idNo));
-  const commandlist = this.commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char && !(this.idNo == 1 && !gameState.isMultiplayer)), map(() => command)));
+  const commandlist = this.commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char && !(this.idNo == 1 && !globalSettings.isMultiplayer)), map(() => command)));
   const move = (command: keyboardCommand) => { rect.setAttribute('y', String(Math.max(0, Math.min(parseFloat(rect.getAttribute('y')) + command.y, svg.getBoundingClientRect().height - rect.getBoundingClientRect().height)))) }
   this.obs = commandlist[0].pipe(merge(commandlist[1])).subscribe((command: keyboardCommand) => move(command));
  }
@@ -427,18 +444,42 @@ function createUser() {
 
 
 
+
+
+interface keyboardSettings{
+  code:string;
+  f:Function;
+}
+
 let gameState: State;
 const globalSettings = new settings();
 const hintTextProcess = new hintTextSettings();
 let ball_motion: ballMotion = new RNG(parseInt(new Date().toString())).getRandomMotion();
 
-
 function core() {
-  document.addEventListener("keydown", function (event) { if (event.code == "KeyP" &&!gameState.isGameRunning) gameState.switchGameMode();});
-  document.addEventListener("keydown", function (event) { if (event.code == "KeyM") gameState.muteOrUnmuted();});
-  document.addEventListener("keydown", function (event) { if (event.code == "Space"&&!gameState.isGameRunning)   gameStart(); });
-  document.addEventListener("keydown", function (event) { if (event.code == "Escape") history.go(0); });
-  bounceeffect();
+  const keylist = [{code:"KeyI",f:()=>{ gameState.isGameRunning? null:globalSettings.switchGameMode()}},  // a list of keyboard actions
+  {code:"KeyU",f:()=>{globalSettings.muteOrUnmuted()}},
+  {code:"KeyO",f:()=>{globalSettings.changeBallSpeed()}},
+  {code:"KeyP",f:()=>{globalSettings.changeBallSize()}},
+  {code:"Space",f:()=>{ gameState.isGameRunning? null:gameStart()}},
+]; 
+const obsnew = keylist.map(    //mapping actions to the observables
+  (command: keyboardSettings) => fromEvent<KeyboardEvent>(document, "keydown").pipe(
+    filter((event: KeyboardEvent) => event.code === command.code),
+     map(() => command)));
+
+  obsnew[0].pipe(merge(obsnew[1],obsnew[2],obsnew[3],obsnew[4])).subscribe((command:keyboardSettings)=>(command.f()));  //merge and subscribe the observable
+
+
+
+
+  //document.addEventListener("keydown", function (event) { if (event.code == "KeyI" &&!gameState.isGameRunning) globalSettings.switchGameMode();});
+  //document.addEventListener("keydown", function (event) { if (event.code == "KeyU") globalSettings.muteOrUnmuted();});
+  //document.addEventListener("keydown", function (event) { if (event.code == "KeyO") globalSettings.changeBallSpeed();});
+  //document.addEventListener("keydown", function (event) { if (event.code == "KeyP") globalSettings.changeBallSize();});
+  //document.addEventListener("keydown", function (event) { if (event.code == "Space"&&!gameState.isGameRunning)   gameStart(); });
+  //document.addEventListener("keydown", function (event) { if (event.code == "Escape") history.go(0); });
+ 
 }
 
 
@@ -453,7 +494,7 @@ function pong() {
   user2 = new Player(2);
   const obslist = user1.commands.concat(user2.commands).map(
         (command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(
-          filter((event: KeyboardEvent) => event.key === command.char && !(command.target == "player1" && !gameState.isMultiplayer)),
+          filter((event: KeyboardEvent) => event.key === command.char && !(command.target == "player1" && !globalSettings.isMultiplayer)),
            map(() => command)));
 
   const movePaddle = (command: keyboardCommand) => {

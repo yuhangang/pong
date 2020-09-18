@@ -27,7 +27,7 @@ class RNG {
 
   getRandomMotion(): ballMotion {   //create ballMotion with the calculated random angle
 
-    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle))   // generate a random number between 15 and 30
+    const random_num = (Math.max(Math.floor(this.nextFloat() * this.maxYangle), this.minYangle))   // generate a random number between 10 and 20
     * ((this.nextFloat() < 0.5 ? -1 : 1)); // negative or positive determiner
     return new ballMotion(random_num);
   }
@@ -46,12 +46,12 @@ class ballMotion {
   constructor(deg: number) {
     this.deg = deg;
     this.calcMovement();
- 
-
   }
+
   calcMovement() {
     this.cx = Math.cos(this.radianToDeg(this.deg));  //calculate initial x and y velocity based on angle
     this.cy = Math.tan(this.radianToDeg(this.deg));
+    
   }
 
   bounce(ball: HTMLElement) {
@@ -59,52 +59,68 @@ class ballMotion {
 
     const paddlebounce = (user: HTMLElement) => {// handle the y velocity acceleration and bounce from paddle
       //const number = 1;
-      const number = 1 + (Math.abs(parseFloat(user.getAttribute('y')) + globalSettings.peddlerHeight / 2  // 1 as minimum value, the acceleration value will based on y location difference between ball and paddle
-      - parseFloat(ball.getAttribute('cy'))) / (globalSettings.peddlerHeight * 2));//with some multiplier to normalize the value
+      const number = 1 + (Math.abs(parseFloat(user.getAttribute('y')) + globalSettings.paddleHeight / 2  // 1 as minimum value, the acceleration value will based on y location difference between ball and paddle
+      - parseFloat(ball.getAttribute('cy'))) / (globalSettings.paddleHeight * 2));//with some multiplier to normalize the value
 
-      this.cx = - this.cx; this.cy = this.cy * number; // x velocity will be reversed towards other peddler
+      this.cx = - this.cx; this.cy = this.cy * number; // x velocity will be reversed towards other paddle
     };
 
     const topBottomBounce = () => { this.cx = this.cx; this.cy = - this.cy; };  // y velocity will be reversed towards other bound
 
-    parseFloat(ball.getAttribute("cy")) <= globalSettings.ballRadius ||     // determine the whether it's bouncing from paddle or top/bottom
-      parseFloat(ball.getAttribute("cy")) >= globalSettings.canvasHeight - globalSettings.ballRadius
+    parseFloat(ball.getAttribute("cy")) <= globalSettings.ballSize ||     // determine the whether it's bouncing from paddle or top/bottom
+      parseFloat(ball.getAttribute("cy")) >= globalSettings.canvasHeight - globalSettings.ballSize
       ? topBottomBounce() :
-      parseFloat(ball.getAttribute("cx")) < globalSettings.canvasWidth / 2 ? paddlebounce(document.getElementById("player1")) : paddlebounce(document.getElementById("player2"));
+      parseFloat(ball.getAttribute("cx")) < globalSettings.canvasWidth / 2 ? paddlebounce(bot) : paddlebounce(user);
+  }
+  toNegative(){
+    this.cx = -this.cx;
   }
   
 }
 
 class settings {   // constants in the game
-  readonly peddlerWidth = 15;
-  readonly peddlerHeight = 120;
-  ballRadius = 15;
+  /*
+  control and store the settings and configuration of game
+  */
+  readonly paddleWidth = 15;
   readonly ballColor = "cyan";
   readonly canvasWidth = 600;
   readonly canvasHeight = 600;
   readonly winScore = 7;
-  isMultiplayer:boolean = false;
+  paddleHeight:number = 120;
   isMuted: boolean = false;
   ballSize:number = 12;
   ballSpeed:number = 2.5;
+  paddlerTopMargin = 240;
 
-  switchGameMode(){  // handle the changes of game mode, text showing in button (not lickable)
-    this.isMultiplayer = !this.isMultiplayer;
-    this.isMultiplayer? document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO SINGLE PLAYER (P)"): document.getElementById('gameModeButton').setAttribute("VALUE","SWITCH TO MULTI PLAYER (I)");
-
-  }
+ 
   muteOrUnmuted() {  // handle changes of sound control, text shawing in button (not clickable)
     this.isMuted = !this.isMuted;
-    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTE (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (U)");
+    this.isMuted ? document.getElementById("mutedButton").setAttribute("VALUE", "UNMUTE (M)") : document.getElementById("mutedButton").setAttribute("VALUE", "MUTE (M)");
     
   }
 
   changeBallSize(){
     this.ballSize= this.ballSize ==12 ?17:12;
     this.ballSize ==17 ? document.getElementById("ballSizeButton").setAttribute("VALUE", "SMALLER BALL (P)") : document.getElementById("ballSizeButton").setAttribute("VALUE", "BIGGER BALL (P)");
-    globalSettings.ballRadius = this.ballSize;
-    document.getElementById("ball").setAttribute("r",String(this.ballSize));
+    
+    ball.setAttribute("r",String(this.ballSize));
   }
+
+  changePaddleSize(){
+    this.paddleHeight = this.paddleHeight ==120 ?90:120;
+    this.paddlerTopMargin = this.paddlerTopMargin==240 ?255:240;
+    this.paddleHeight ==90 ? document.getElementById("ballSizeButton").setAttribute("VALUE", "BIGGER PADDLE (I)") : document.getElementById("ballSizeButton").setAttribute("VALUE", "SMALLER PADDLE (I)");
+    
+
+    
+
+    bot.setAttribute("height",String(this.paddleHeight));
+    user.setAttribute("height",String(this.paddleHeight));
+    gameState.isGameRunning?null:user.setAttribute("y", String(globalSettings.paddlerTopMargin)); // center the players' paddle
+    gameState.isGameRunning?null:bot.setAttribute("y", String(globalSettings.paddlerTopMargin));
+  }
+
   changeBallSpeed(){
     this.ballSpeed = this.ballSpeed == 2.5? 4 : 2.5;
     this.ballSpeed == 4 ? document.getElementById("ballSpeedButton").setAttribute("VALUE", "SLOWER BALL (O)") : document.getElementById("ballSpeedButton").setAttribute("VALUE", "FASTER BALL (O)");
@@ -118,7 +134,7 @@ class sound {  // the data structure to store sound player
     this.sound.src = src;
     this.sound.setAttribute("preload", "auto");
     this.sound.setAttribute("controls", "none");
-    this.sound.setAttribute("muted", "true");
+   
     this.sound.style.display = "none";
     document.getElementById('canvas').appendChild(this.sound);
   }
@@ -127,18 +143,18 @@ class sound {  // the data structure to store sound player
   async play(){
     this.sound.play();
     
-      
-    
   }
-  stop() {
-    this.sound.pause();
-  }
+
 }
 
 
 
 
 class hintTextSettings {
+  /*
+  Conytolling the text showing in bottom of the canvas
+  */
+  
   initialGameState() {
     const hintText = document.getElementById("hint");              //give hint to user about how to start or restart a game
     hintText.innerText = "Click space button to start the game";
@@ -164,6 +180,9 @@ class hintTextSettings {
 
 
 class State {
+  /*
+  The main state machine, controll and store the state in games
+  */
 
   userScore: number = 0;
   botScore: number = 0;
@@ -172,6 +191,9 @@ class State {
  
   bounceSound: sound;
   scoreSound: sound;
+  botScoreElement = document.getElementById("botScore");
+  userScoreElement = document.getElementById("userScore");
+  
 
   readonly playerLose = () => { hintTextProcess.userLose(); this.reset(); return false }; 
   readonly playerWin = () => { hintTextProcess.userWin(); this.reset(); return false };
@@ -179,23 +201,24 @@ class State {
   constructor() {
     this.bounceSound = new sound("bounce.mp3");  // initialize the sound players
     this.scoreSound = new sound("score.mp3");
+    
   }
   
   start(){    // showing start of game, to prohibit user from change game mode or repeatly start a new game
     this.isGameRunning = true;
-    document.getElementById('gameModeButton').setAttribute("DISABLED","disabled");
   }
 
   addUserScore(): boolean {    //handle changes in user score, and change the value of scoreboard
     this.userScore++;
-    document.getElementById("userScore").innerText = String(this.userScore);
+    this.userScoreElement.innerText = String(this.userScore);
     this.reCenterBall();
+    ball_motion.toNegative(); // if user win the ball will move towards user in the start of next round
     return this.userScore < globalSettings.winScore ? true : this.playerWin();
   }
 
   addBotScore(): boolean {                 //handle changes in user score, and change the value of scoreboard
     this.botScore++;
-    document.getElementById("botScore").innerText = String(this.botScore);
+    this.botScoreElement.innerText = String(this.botScore);
     this.reCenterBall();
     return this.botScore < globalSettings.winScore ? true : this.playerLose();
 
@@ -204,12 +227,11 @@ class State {
   reset() {  //when game end reset the state for next game
     this.userScore = 0; this.botScore = 0; 
     this.isGameRunning = false;
-    document.getElementById('gameModeButton').removeAttribute("DISABLED");
     setTimeout(() => {
-      document.getElementById("botScore").innerText = String(this.botScore);     // creating delay to showing the score of finished game 
-      document.getElementById("userScore").innerText = String(this.userScore);
+      this.botScoreElement.innerText = String(this.botScore);     // creating delay to showing the score of finished game 
+      this.userScoreElement.innerText = String(this.userScore);
     }
-      , 3000);
+      , 5000);
     
   }
  
@@ -217,10 +239,10 @@ class State {
   reCenterBall() {
     globalSettings.isMuted ? null:this.scoreSound.play(); // playing when player get mark
 
-    document.getElementById("ball").setAttribute("cx", String(globalSettings.canvasWidth / 2));  // center the ball
-    document.getElementById("ball").setAttribute("cy", String(globalSettings.canvasHeight / 2));
-    document.getElementById("player2").setAttribute("y", String(240)); // center the players' paddle
-    document.getElementById("player1").setAttribute("y", String(240));
+    ball.setAttribute("cx", String(globalSettings.canvasWidth / 2));  // center the ball
+    ball.setAttribute("cy", String(globalSettings.canvasHeight / 2));
+    user.setAttribute("y", String(globalSettings.paddlerTopMargin)); // center the players' paddle
+    bot.setAttribute("y", String(globalSettings.paddlerTopMargin));
     ball_motion = new RNG(parseInt(new Date().toString())).getRandomMotion();   //generate a new random motion for next round
   }
 
@@ -228,7 +250,7 @@ class State {
 
     const bounceEffect = () => {               
       globalSettings.isMuted ? null:this.bounceSound.play(); 
-      const ball = document.getElementById("ball");
+
     ball.setAttribute('fill', "white");
     setTimeout(function () {
       //this.bounceSound.stop(); 
@@ -237,47 +259,49 @@ class State {
       return true;  // a function for playing bouncing sound
     };
 
-    if (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.peddlerWidth - globalSettings.peddlerWidth) { //handle the player at right side
-      const player = document.getElementById("player2");
-      const handleChange = () => { return this.addBotScore(); };
-      return isGetByPlayer(player) ? bounceEffect() : handleChange();
-    }
+  
 
-    else if (parseFloat(ball.getAttribute('cx')) <= globalSettings.peddlerWidth + globalSettings.ballRadius) { //handle the player at left size
-      const player = document.getElementById("player1");
-      const handleChange = () => { return this.addUserScore(); };
-      return isGetByPlayer(player) ? bounceEffect() : handleChange();
-    }
-    return bounceEffect();
+    const handleRight = ()=>{return isGetByPlayer(user) ? bounceEffect() : this.addBotScore();};
 
-  }
+    const handleLeft= ()=>{return isGetByPlayer(bot) ? bounceEffect() : this.addUserScore();};
+
+
+    return (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.paddleWidth - globalSettings.paddleWidth) ?//handle the player at right side
+       handleRight()
+   :(parseFloat(ball.getAttribute('cx')) <= globalSettings.paddleWidth + globalSettings.ballSize) ? //handle the player at left size
+      handleLeft() : bounceEffect();
+
+}
 }
 
 
 
 
 
-function move(ball: HTMLElement, ball_motion: ballMotion): boolean {
-  const bot = document.getElementById("player1");
-  const bound = globalSettings.canvasWidth - globalSettings.ballRadius / 2;
+function move( ball_motion: ballMotion): boolean {
+  /*
+  perform moving of the ball in the game
+  */
+
+  const bound = globalSettings.canvasWidth - globalSettings.ballSize / 2;
   ball.setAttribute('cx', String(                            // move x horizontally
-    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.peddlerWidth + globalSettings.ballRadius),
+    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.paddleWidth + globalSettings.ballSize),
       bound)));
   ball.setAttribute('cy', String(                             // move y horizonatally
     Math.min(globalSettings.ballSpeed  * ball_motion.cy + Number(ball.getAttribute('cy')),
       bound)));
-  globalSettings.isMultiplayer ? null:
+ 
   bot.setAttribute('y', String(                                   // move y
-    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.peddlerHeight / 2, 0),
-      globalSettings.canvasHeight - globalSettings.peddlerHeight)));
+    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.paddleHeight / 2,globalSettings.ballSize*3),
+      globalSettings.canvasHeight - globalSettings.paddleHeight-globalSettings.ballSize*3)));
   return true;
 }
 
-function isReachBound(ball: HTMLElement, bound: number): boolean {            // function to determine the whether the ball dhould be moving or not
-  return (parseFloat(ball.getAttribute('cx')) > globalSettings.peddlerWidth + globalSettings.ballRadius &&
-    parseFloat(ball.getAttribute('cx')) < bound - globalSettings.peddlerWidth &&
-    parseFloat(ball.getAttribute('cy')) > globalSettings.ballRadius &&
-    parseFloat(ball.getAttribute('cy')) < globalSettings.canvasWidth - globalSettings.ballRadius);
+function isReachBound(bound: number): boolean {            // function to determine the whether the ball dhould be moving or not
+  return (parseFloat(ball.getAttribute('cx')) > globalSettings.paddleWidth + globalSettings.ballSize &&
+    parseFloat(ball.getAttribute('cx')) < bound - globalSettings.paddleWidth &&
+    parseFloat(ball.getAttribute('cy')) > globalSettings.ballSize &&
+    parseFloat(ball.getAttribute('cy')) < globalSettings.canvasWidth - globalSettings.ballSize);
 }
 
 
@@ -286,46 +310,34 @@ function isReachBound(ball: HTMLElement, bound: number): boolean {            //
 
 
 async function gameStart() {
+  /*
+  this function will execute once for every games, invoke the observable stream to run the gameplay
+  */
   gameState.start();
   hintTextProcess.empty();
+  ball_motion= new RNG(parseInt(new Date().toString())).getRandomMotion();
 
   
-  const ball = document.getElementById("ball");
-  const bound = globalSettings.canvasWidth - globalSettings.peddlerWidth;
 
-  const input = interval(10).pipe().subscribe(   // main observable stream of ball
+  const bound = globalSettings.canvasWidth - globalSettings.paddleWidth;
+
+  const input = interval(10).pipe().subscribe(   // main observable stream of gameplay
     () => {
-      (isReachBound(ball, bound)) ?
+      (isReachBound(bound)) ?
        null : gameState.handleReachBound(ball)  
        ? ball_motion.bounce(ball) : input.unsubscribe();   // handle bouncing or terminating the observable streams
-      move(ball, ball_motion);  //move the ball
+      move(ball_motion);  //move the ball
     });
 
 
 }
 
 
-//function isGetByUser() {
-//  const ball = document.getElementById("ball");
-//  const user = document.getElementById("player2");
-//  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(user.getAttribute('y')) &&
-//    parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
-//    <= parseFloat(user.getAttribute('y')) + parseFloat(user.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
-//}
-//
-//function isGetByBot() {
-//  const ball = document.getElementById("ball");
-//  const bot = document.getElementById("player1");
-//  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(bot.getAttribute('y')) &&
-//    parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
-//    <= parseFloat(bot.getAttribute('y')) + parseFloat(bot.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 2);
-//}
 
 
 
 
 function isGetByPlayer(player: HTMLElement):boolean{ //determine whether the player able to bounce the ball 
-  const ball = document.getElementById("ball");
 
   return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&  //compare the location of paddle with ball
     parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
@@ -338,14 +350,6 @@ function isGetByPlayer(player: HTMLElement):boolean{ //determine whether the pla
 
 function createBall() { // the ball element
   const svg = document.getElementById("canvas");
-  //const peddler = document.createElementNS(svg.namespaceURI, 'rect');
-  //Object.entries({
-  //  x: 0, y: 240,
-  //  width: 15, height: 120,
-  //  id: "player1",
-  //  fill: '#FFFFFF',
-  //}).forEach(([key, val]) => peddler.setAttribute(key, String(val)))
-  //svg.appendChild(peddler);
 
 
   const ball = document.createElementNS(svg.namespaceURI, 'circle');
@@ -371,7 +375,7 @@ function createBall() { // the ball element
 
 
 
-class Player{ // data structure to store player data
+class Player{ // data structure to store player data initialize observable stream to control the user's paddle
   commands: Array<keyboardCommand>;
   obs:Subscription;
   idNo:number;
@@ -384,25 +388,25 @@ class Player{ // data structure to store player data
   
   Object.entries({
     id: "player"+String(idNo),
-    x: idNo ==1 ?0:585, y: 240,
+    x: idNo ==1 ?0:585, y: globalSettings.paddlerTopMargin,
     width: 15, height: 120,
     fill: '#FFFFFF',
   }).forEach(([key, val]) => rect.setAttribute(key, String(val))); // create the html element for player to canvas in constructor
   svg.appendChild(rect);
 
   this.commands = [
-    { char: idNo ==1? "w":'ArrowUp', y: -10,target:this.id },  // the commande to be used in observable
-    { char: idNo ==1? "s":"ArrowDown", y: 10,target:this.id }
+    { char:'ArrowUp', y: -10,target:this.id },  // the commande to be used in observable
+    { char:"ArrowDown", y: 10,target:this.id }
   ];
-  //this.createObservable();
+  idNo == 2? this.createObservable():null;
 }
 
  createObservable(){
   const svg = document.getElementById("canvas")!;
   const rect = document.getElementById("player"+String(this.idNo));
-  const commandlist = this.commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char && !(this.idNo == 1 && !globalSettings.isMultiplayer)), map(() => command)));
-  const move = (command: keyboardCommand) => { rect.setAttribute('y', String(Math.max(0, Math.min(parseFloat(rect.getAttribute('y')) + command.y, svg.getBoundingClientRect().height - rect.getBoundingClientRect().height)))) }
-  this.obs = commandlist[0].pipe(merge(commandlist[1])).subscribe((command: keyboardCommand) => move(command));
+  const commandlist = this.commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char), map(() => command)));
+  const movePaddle = (command: keyboardCommand) => { rect.setAttribute('y', String(Math.max(0, Math.min(parseFloat(rect.getAttribute('y')) + command.y, svg.getBoundingClientRect().height - rect.getBoundingClientRect().height)))) }
+  this.obs = commandlist[0].pipe(merge(commandlist[1])).subscribe((command: keyboardCommand) => movePaddle(command));
  }
  
  removeObservable(){
@@ -413,52 +417,34 @@ class Player{ // data structure to store player data
 
 interface keyboardCommand {
     char: string;
-    //x: number;
     y: number;
     target:string;
   }
-
-function createUser() {
-  
-  // get the svg canvas element
-  const svg = document.getElementById("canvas")!;
-  const rect = document.createElementNS(svg.namespaceURI, 'rect');
-  Object.entries({
-    id: "player2",
-    x: 585, y: 240,
-    width: 15, height: 120,
-    fill: '#FFFFFF',
-  }).forEach(([key, val]) => rect.setAttribute(key, String(val)))
-  svg.appendChild(rect);
-
-
-  const commands: Array<keyboardCommand> = [
-    { char: 'ArrowUp', y: -10 ,target:""},
-    { char: "ArrowDown", y: 10,target:"" }
-  ];
-
-  const commandlist = commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char), map(() => command)));
-  const move = (command: keyboardCommand) => { rect.setAttribute('y', String(Math.max(0, Math.min(parseFloat(rect.getAttribute('y')) + command.y, svg.getBoundingClientRect().height - rect.getBoundingClientRect().height)))) }
-  commandlist[0].pipe(merge(commandlist[1])).subscribe((command: keyboardCommand) => move(command));
-}
-
-
-
-
 
 interface keyboardSettings{
   code:string;
   f:Function;
 }
-
+//initialize the states machine and controller
 let gameState: State;
 const globalSettings = new settings();
 const hintTextProcess = new hintTextSettings();
-let ball_motion: ballMotion = new RNG(parseInt(new Date().toString())).getRandomMotion();
+let ball_motion: ballMotion;
+let user1:Player;
+let user2 :Player;
+let user:HTMLElement;
+let bot:HTMLElement;
+let ball:HTMLElement;
+
 
 function core() {
-  const keylist = [{code:"KeyI",f:()=>{ gameState.isGameRunning? null:globalSettings.switchGameMode()}},  // a list of keyboard actions
-  {code:"KeyU",f:()=>{globalSettings.muteOrUnmuted()}},
+  /*
+  the core function to control the setting and running the game
+  */
+  
+  const keylist = [ // a list of keyboard actions
+    {code:"KeyM",f:()=>{globalSettings.muteOrUnmuted()}},
+  {code:"KeyI",f:()=>{globalSettings.changePaddleSize()}},
   {code:"KeyO",f:()=>{globalSettings.changeBallSpeed()}},
   {code:"KeyP",f:()=>{globalSettings.changeBallSize()}},
   {code:"Space",f:()=>{ gameState.isGameRunning? null:gameStart()}},
@@ -471,40 +457,24 @@ const obsnew = keylist.map(    //mapping actions to the observables
   obsnew[0].pipe(merge(obsnew[1],obsnew[2],obsnew[3],obsnew[4])).subscribe((command:keyboardSettings)=>(command.f()));  //merge and subscribe the observable
 
 
-
-
-  //document.addEventListener("keydown", function (event) { if (event.code == "KeyI" &&!gameState.isGameRunning) globalSettings.switchGameMode();});
-  //document.addEventListener("keydown", function (event) { if (event.code == "KeyU") globalSettings.muteOrUnmuted();});
-  //document.addEventListener("keydown", function (event) { if (event.code == "KeyO") globalSettings.changeBallSpeed();});
-  //document.addEventListener("keydown", function (event) { if (event.code == "KeyP") globalSettings.changeBallSize();});
-  //document.addEventListener("keydown", function (event) { if (event.code == "Space"&&!gameState.isGameRunning)   gameStart(); });
-  //document.addEventListener("keydown", function (event) { if (event.code == "Escape") history.go(0); });
- 
 }
 
 
 
-let user1:Player;
-let user2 :Player;
 
 function pong() {
-  gameState = new State();
-  //createUser();//
+  
   user1 = new Player(1);
   user2 = new Player(2);
-  const obslist = user1.commands.concat(user2.commands).map(
-        (command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(
-          filter((event: KeyboardEvent) => event.key === command.char && !(command.target == "player1" && !globalSettings.isMultiplayer)),
-           map(() => command)));
-
-  const movePaddle = (command: keyboardCommand) => {
-     document.getElementById(command.target).setAttribute('y', String(Math.max(0, Math.min(parseFloat(document.getElementById(command.target).getAttribute('y'))
-   + command.y, document.getElementById("canvas").getBoundingClientRect().height - document.getElementById(command.target).getBoundingClientRect().height)))) }
-  obslist[0].pipe(merge(obslist[1],obslist[2],obslist[3])).subscribe((command: keyboardCommand) => movePaddle(command));
-  //https://www.learnrxjs.io/learn-rxjs/recipes/tank-battle-game
-  const newobs = combineLatest(obslist);
-
   createBall();
+  user = document.getElementById("player2");
+  bot = document.getElementById("player1");
+  ball = document.getElementById('ball');
+  gameState = new State();
+  
+
+
+  
   core();
 
 }

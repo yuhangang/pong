@@ -100,24 +100,22 @@ class settings {   // constants in the game
     
   }
 
-  changeBallSize(){
+  changeBallSize(){ // handle changes of ball size, text shawing in button (not clickable)
     this.ballSize= this.ballSize ==12 ?17:12;
     this.ballSize ==17 ? document.getElementById("ballSizeButton").setAttribute("VALUE", "SMALLER BALL (P)") : document.getElementById("ballSizeButton").setAttribute("VALUE", "BIGGER BALL (P)");
     
     ball.setAttribute("r",String(this.ballSize));
   }
 
-  changePaddleSize(){
+  changePaddleSize(){ // handle changes of paddle size, text shawing in button (not clickable)
     this.paddleHeight = this.paddleHeight ==120 ?90:120;
     this.paddlerTopMargin = this.paddlerTopMargin==240 ?255:240;
     this.paddleHeight ==90 ? document.getElementById("ballSizeButton").setAttribute("VALUE", "BIGGER PADDLE (I)") : document.getElementById("ballSizeButton").setAttribute("VALUE", "SMALLER PADDLE (I)");
     
 
-    
-
     bot.setAttribute("height",String(this.paddleHeight));
     user.setAttribute("height",String(this.paddleHeight));
-    gameState.isGameRunning?null:user.setAttribute("y", String(globalSettings.paddlerTopMargin)); // center the players' paddle
+    gameState.isGameRunning?null:user.setAttribute("y", String(globalSettings.paddlerTopMargin)); // center the players' paddle if game is running
     gameState.isGameRunning?null:bot.setAttribute("y", String(globalSettings.paddlerTopMargin));
   }
 
@@ -262,9 +260,7 @@ class State {
   
 
     const handleRight = ()=>{return isGetByPlayer(user) ? bounceEffect() : this.addBotScore();};
-
     const handleLeft= ()=>{return isGetByPlayer(bot) ? bounceEffect() : this.addUserScore();};
-
 
     return (parseFloat(ball.getAttribute('cx')) >= globalSettings.canvasWidth - globalSettings.paddleWidth - globalSettings.paddleWidth) ?//handle the player at right side
        handleRight()
@@ -275,14 +271,18 @@ class State {
 }
 
 
+function isGetByPlayer(player: HTMLElement):boolean{ //determine whether the player able to bounce the ball 
 
+  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&  //compare the location of paddle with ball
+    parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
+    <= parseFloat(player.getAttribute('y')) + parseFloat(player.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 4);
+}
 
 
 function move( ball_motion: ballMotion): boolean {
   /*
-  perform moving of the ball in the game
+  perform moving of the ball in the game, calling by gameRound()
   */
-
   const bound = globalSettings.canvasWidth - globalSettings.ballSize / 2;
   ball.setAttribute('cx', String(                            // move x horizontally
     Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cx + Number(ball.getAttribute('cx')), globalSettings.paddleWidth + globalSettings.ballSize),
@@ -290,9 +290,9 @@ function move( ball_motion: ballMotion): boolean {
   ball.setAttribute('cy', String(                             // move y horizonatally
     Math.min(globalSettings.ballSpeed  * ball_motion.cy + Number(ball.getAttribute('cy')),
       bound)));
- 
-  bot.setAttribute('y', String(                                   // move y
-    Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.paddleHeight / 2,globalSettings.ballSize*3),
+  
+   bot.setAttribute('y', String(                                   // move y
+     Math.min(Math.max(globalSettings.ballSpeed * ball_motion.cy + Number(ball.getAttribute('cy')) - globalSettings.paddleHeight / 2,globalSettings.ballSize*3),
       globalSettings.canvasHeight - globalSettings.paddleHeight-globalSettings.ballSize*3)));
   return true;
 }
@@ -303,10 +303,6 @@ function isReachBound(bound: number): boolean {            // function to determ
     parseFloat(ball.getAttribute('cy')) > globalSettings.ballSize &&
     parseFloat(ball.getAttribute('cy')) < globalSettings.canvasWidth - globalSettings.ballSize);
 }
-
-
-
-
 
 
 async function gameStart() {
@@ -325,7 +321,7 @@ async function gameStart() {
     () => {
       (isReachBound(bound)) ?
        null : gameState.handleReachBound(ball)  
-       ? ball_motion.bounce(ball) : input.unsubscribe();   // handle bouncing or terminating the observable streams
+       ? ball_motion.bounce(ball) : input.unsubscribe();   // calling the functions in state machines, terminate the game if output is false
       move(ball_motion);  //move the ball
     });
 
@@ -337,12 +333,7 @@ async function gameStart() {
 
 
 
-function isGetByPlayer(player: HTMLElement):boolean{ //determine whether the player able to bounce the ball 
 
-  return (parseFloat(ball.getAttribute('cy')) >= parseFloat(player.getAttribute('y')) &&  //compare the location of paddle with ball
-    parseFloat(ball.getAttribute('cy')) - parseFloat(ball.getAttribute('r')) / 2
-    <= parseFloat(player.getAttribute('y')) + parseFloat(player.getAttribute('height')) + parseFloat(ball.getAttribute('r')) / 4);
-}
 
 
 
@@ -401,7 +392,7 @@ class Player{ // data structure to store player data initialize observable strea
   idNo == 2? this.createObservable():null;
 }
 
- createObservable(){
+ createObservable(){  // initialize observable stream to control player's paddle
   const svg = document.getElementById("canvas")!;
   const rect = document.getElementById("player"+String(this.idNo));
   const commandlist = this.commands.map((command: keyboardCommand) => fromEvent<KeyboardEvent>(document, "keydown").pipe(filter((event: KeyboardEvent) => event.key === command.char), map(() => command)));
@@ -437,11 +428,13 @@ let bot:HTMLElement;
 let ball:HTMLElement;
 
 
+
+
+
 function core() {
   /*
   the core function to control the setting and running the game
   */
-  
   const keylist = [ // a list of keyboard actions
     {code:"KeyM",f:()=>{globalSettings.muteOrUnmuted()}},
   {code:"KeyI",f:()=>{globalSettings.changePaddleSize()}},
